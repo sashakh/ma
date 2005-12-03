@@ -1,0 +1,53 @@
+TODO:
+
+Short term:
+* m.c - store all global arrays (dp,dp_names,drivers) and initializations
+  - started, to continue
+* fsk, v21
+  - cleanup
+  - optimizations: history loop may be removed and incremental
+    x0,y0 sums are used instead
+* tty data processing
+  - modem_tty_process() - use rx, tx data fifos
+  - get_char, put_char callbacks
+  - trivial command/data/connected state handling
+  - integration with async bitqueue
+* prepare to release
+  - README
+  - rebuild source tree: all on top, tools sub-directory
+  	(for gen_tables, filters, octave stuff, low-level testers)
+  - recreate git archive (dropping "history" is permitted)
+  - trivial cleanups
+* trivial detector dp
+* v22(bis)/psk/qam
+  - basic (buggy) psk demodulator
+  - psk optimization: x0,y0 may be saved for future use
+    (sin,cos should run phase continually then)
+  - basic psk modulator
+  - verify scrambler "invert after 64 ones" feature
+  - bandpass filter (at least for tx) - root raised cosine with 0 phase shift
+  - v22 protocol
+  - test, improvements
+  - qam demodulator/modulator
+  - v22bis protocol
+* hdlc data layer, error corrector
+* trivial at processor
+
+To improve:
+* command line processor
+  - two pass processing (verify + process)
+  - multiple input tables (per application)
+  - better table format
+* async bitqueue improvements:
+  - handle different char formats: 8N1, 7E1, etc,
+  - break handing (add ->break_count)
+* debug module
+  - cleanups
+  - possible debug.c -> logging.c rename, separate .h
+
+Long term:
+* detector data pump
+* compressor
+* at processor
+* v34
+* v90
