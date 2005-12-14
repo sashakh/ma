@@ -1,12 +1,13 @@
 TODO:
 
+Immediate:
+- terminal setup for mdial
+- clean session termination: hook off, etc.
+- carrier lost detection and reporting
+
 Short term:
 * m.c - store all global arrays (dp,dp_names,drivers) and initializations
   - started, to continue
-* fsk, v21
-  - cleanup
-  - optimizations: history loop may be removed and incremental
-    x0,y0 sums are used instead
 * tty data processing
   - modem_tty_process() - use rx, tx data fifos
   - get_char, put_char callbacks
@@ -16,18 +17,20 @@ Short term:
   - README
   - rebuild source tree: all on top, tools sub-directory
   	(for gen_tables, filters, octave stuff, low-level testers)
-  - recreate git archive (dropping "history" is permitted)
   - trivial cleanups
 * trivial detector dp
+  - something done, may be extended to detection of multi-freq signals,
+    signals with phase reversion (like ansam) and non-continues signals
+    (like BUSY, DIALTONE, etc). Then may be integrated with dialer's
+    dialtone detection.
 * v22(bis)/psk/qam
-  - basic (buggy) psk demodulator
-  - psk optimization: x0,y0 may be saved for future use
+  - psk demod optimization: x0,y0 may be saved for future use
     (sin,cos should run phase continually then)
+  - psk mod optimization: split input (bits) to I and Q, filter
+    separately (by RRC) with using prepared lookup-tables.
   - basic psk modulator
   - verify scrambler "invert after 64 ones" feature
-  - bandpass filter (at least for tx) - root raised cosine with 0 phase shift
-  - v22 protocol
-  - test, improvements
+  - tests, improvements
   - qam demodulator/modulator
   - v22bis protocol
 * hdlc data layer, error corrector
@@ -44,9 +47,10 @@ To improve:
 * debug module
   - cleanups
   - possible debug.c -> logging.c rename, separate .h
+* fsk, v21
+  - cleanup
 
 Long term:
-* detector data pump
 * compressor
 * at processor
 * v34

@@ -35,7 +35,7 @@ unsigned int log_level = 0;
 const char *modem_driver_name = "alsa";
 const char *modem_device_name = "modem:1";
 const char *modem_phone_number = "0123456789";
-const char *modulation_test = "v21";
+const char *modulation_test = "detector";
 
 /* drivers stuff */
 extern const struct modem_driver alsa_driver;
@@ -44,6 +44,14 @@ extern const struct modem_driver file_driver;
 const static struct modem_driver *drivers[] = {
 	&alsa_driver,
 	&file_driver,
+};
+
+const struct signal_desc signal_descs[] = {
+	[SIGNAL_NONE] = {},
+	[SIGNAL_2100] = {"2100", 2100},
+	[SIGNAL_ANSAM] = {"Ansam", 2100},
+	[SIGNAL_2225] = {"2225", 2225},
+	[SIGNAL_2245] = {"2245", 2245},
 };
 
 const struct modem_driver *find_modem_driver(const char *name)

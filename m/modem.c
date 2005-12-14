@@ -42,6 +42,13 @@ static int modem_start(struct modem *m);
 static int modem_stop(struct modem *m);
 static void modem_reset(struct modem *m);
 
+const static char *modem_status_names[] = {
+	[STATUS_NONE] = "none",
+	[STATUS_CONNECTING] = "connecting",
+	[STATUS_DP_CONNECT] = "dp connect",
+	[STATUS_DP_TIMEOUT] = "dp timeout",
+};
+
 const static char *dp_names[] = {
 	[DP_NONE] = "none",
 	[DP_DIALER] = "dialer",
@@ -57,23 +64,80 @@ const static struct dp_operations *dp_ops [] = {
 	[DP_V22] = &v22_ops,
 };
 
+
+#define modem_status_name(stat) (((stat) < arrsize(modem_status_names) && \
+		modem_status_names[(stat)]) ? modem_status_names[(stat)] : \
+		"unknown" )
 #define get_dp_name(id) (((id) < arrsize(dp_names) && dp_names[(id)]) ? \
 		dp_names[(id)] : "unknown" )
 #define get_dp_operations(id) ((id) < arrsize(dp_ops) ? dp_ops[(id)] : NULL )
 
 
-/* FIXME: rx,tx fifos are needed */
+/*
+ *  get/put chars
+ */
+
 static int modem_get_chars(struct modem *m, uint8_t *buf, unsigned count)
 {
-	//dbg("modem_get_chars: %d\n", count);
 	return fifo_get(&m->tx_fifo, buf, count);
 }
 
 static int modem_put_chars(struct modem *m, uint8_t *buf, unsigned count)
 {
-	//dbg("modem_put_chars: %d\n", count);
 	//return fifo_put(&m->rx_fifo, buf, count);
 	return write(m->tty, buf, count);
+}
+
+
+/*
+ * status updates
+ */
+
+void modem_update_status(struct modem *m, enum MODEM_STATUS status)
+{
+	dbg("modem_update_status: status = %s\n", modem_status_name(status));
+	switch(status) {
+	case STATUS_NONE:
+		break;
+	case STATUS_DP_TIMEOUT:
+		m->next_dp_id = DP_FAIL;
+	case STATUS_CONNECTING:
+		m->get_bits = NULL;
+		m->put_bits = NULL;
+		m->get_chars = m->put_chars = NULL;
+		m->data = m->command = 0;
+		break;
+	case STATUS_DP_CONNECT:
+		dbg("dp reports CONNECT\n");
+		info("\nCONNECT\n");
+		m->get_bits = async_bitque_get_bits;
+		m->put_bits = async_bitque_put_bits;
+		m->get_chars = modem_get_chars;
+		m->put_chars = modem_put_chars;
+		m->data = 1;
+		m->command = 0;
+		break;
+	}
+}
+
+
+void modem_update_signals(struct modem *m, unsigned int signals)
+{
+	unsigned n;
+#if 1
+	unsigned changed = m->signals_detected^signals;
+	for (n = 0 ; n < arrsize(signal_descs) ; n++) {
+		if (changed&MASK(n))
+			dbg("update_signals: signal %s d%sed\n",
+				signal_descs[n].name ? signal_descs[n].name : "unknown",
+				signals&MASK(n) ? "etect" : "isappear");
+	}
+#endif
+	if (signals&(MASK(SIGNAL_ANSAM)))
+		/* nothing yet */;
+	else if (signals&(MASK(SIGNAL_2225)|MASK(SIGNAL_2245)))
+		m->next_dp_id = DP_V22;
+	m->signals_detected = signals;
 }
 
 static void drop_all(struct modem *m)
@@ -87,13 +151,16 @@ static void drop_all(struct modem *m)
 static int modem_switch_datapump(struct modem *m, unsigned int dp_id)
 {
 	struct datapump old_datapump, new_datapump;
-	void *dp;
 	const struct dp_operations *dp_op;
+	void *dp;
 
 	trace();
 
 	old_datapump = m->datapump;
-
+	m->datapump.id = 0;
+	if (old_datapump.id)
+		old_datapump.op->delete(old_datapump.dp);
+	
 	if ( !dp_id ||
 		!(dp_op = get_dp_operations(dp_id)) ||
 		!(dp = dp_op->create(m))) {
@@ -106,15 +173,13 @@ static int modem_switch_datapump(struct modem *m, unsigned int dp_id)
 	new_datapump.dp = dp;
 	new_datapump.op = dp_op;
 
-	dbg("%u: switch datapamp: %s (%u) -> %s (%u)...\n", m->samples_count,
-			old_datapump.name ? old_datapump.name : "none", old_datapump.id,
+	dbg("%u: switch datapump: %s (%u) -> %s (%u)...\n", m->samples_count,
+			get_dp_name(old_datapump.id), old_datapump.id,
 			new_datapump.name, new_datapump.id);
 
-	if (old_datapump.id) {
-		old_datapump.op->delete(old_datapump.dp);
-	}
 	m->datapump = new_datapump;
 	m->process = m->datapump.op->process;
+
 	return 0;
 }
 
@@ -150,7 +215,6 @@ static int modem_dev_process(struct modem *m)
 	static int16_t buf_in[1024], buf_out[1024];
 	int (*process)(struct modem *m,
 			int16_t *in, int16_t *out, unsigned count);
-	unsigned need_to_switch = 0;
 	int ret, count;
 
 	trace("%d:", m->samples_count);
@@ -170,7 +234,8 @@ static int modem_dev_process(struct modem *m)
 
 	if (ret < count) {
 		memset(buf_out + ret, 0, (count - ret)*sizeof(int16_t));
-		need_to_switch = 1;
+		if (!m->next_dp_id)
+			m->next_dp_id = DP_FAIL;
 	}
 
 	ret = m->driver->write(m, buf_out, count);
@@ -184,7 +249,7 @@ static int modem_dev_process(struct modem *m)
 	log_rx_samples(buf_in,  count);
 	log_tx_samples(buf_out, count);
 
-	if (need_to_switch) {
+	if (m->next_dp_id) {
 		ret = modem_switch_datapump(m, m->next_dp_id);
 		m->next_dp_id = 0;
 	}
@@ -193,13 +258,36 @@ static int modem_dev_process(struct modem *m)
 	return ret;
 }
 
+
+int modem_tty_process(struct modem *m)
+{
+	static char tty_buf[4096];
+	int cnt;
+	dbg("poll: ttyfd...\n");
+	cnt = fifo_room(&m->tx_fifo);
+	if (cnt > sizeof(tty_buf))
+		cnt = sizeof(tty_buf);
+	cnt = read(m->tty, tty_buf, cnt);
+	if (cnt < 0) {
+		if(errno == -EIO) {
+			dbg("closed tty - suspend poll.\n");
+			return 100; /* closed_tty_count = 100; */
+		}
+		return cnt;
+	}
+	dbg("got %d chars from tty.\n", cnt);
+	fifo_put(&m->tx_fifo, tty_buf, cnt);
+	return 0;
+}
+
+
 int modem_run(struct modem *m)
 {
 	struct pollfd pollfd[2];
 	unsigned int nfds;
 	unsigned closed_tty_count = 0;
 	struct pollfd *devfd, *ttyfd;
-	int ret;
+	int ret = 0;
 
 	trace();
 	
@@ -214,42 +302,38 @@ int modem_run(struct modem *m)
 		}
 		if (closed_tty_count)
 			closed_tty_count--;
-		else {
+		else if (fifo_room(&m->tx_fifo)) {
 			ttyfd = &pollfd[nfds++];
 			ttyfd->fd = m->tty;
 		}
 
 		ret = poll(pollfd, nfds, 1000);
 		if (ret < 0) {
-			if(errno == EINTR)
+			if(errno == EINTR) {
+				ret = 0;
 				continue;
-			perror("poll");
-			return ret;
+			}
+			err("poll error: %s\n", strerror(errno));
+			break;
 		}
 		if (ret == 0) { /* timeout */
 			closed_tty_count = 0;
 			continue;
 		}
-		if (devfd && (devfd->revents & POLLIN) &&
-			(ret = modem_dev_process(m)) < 0)
-				return ret;
-		if (ttyfd && (ttyfd->revents & POLLIN) ) {
-			static char tty_buf[4096];
-			dbg("poll: ttyfd...\n");
-			ret = read(ttyfd->fd, tty_buf, sizeof(tty_buf));
-			if (ret < 0) {
-				if(errno == -EIO) {
-					dbg("closed tty - suspend poll.\n");
-					closed_tty_count = 100;
-					continue;
-				}
-				return ret;
-			}
-			dbg("got %d chars from tty.\n", ret);
+		if (devfd && (devfd->revents & POLLIN)) {
+			ret = modem_dev_process(m);
+			if(ret < 0)
+				break;
+		}
+		if (ttyfd && (ttyfd->revents & POLLIN)) {
+			ret = modem_tty_process(m);
+			if (ret < 0)
+				break;
+			closed_tty_count = ret;
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 int modem_set_hook(struct modem *m, unsigned hook_off)
@@ -289,42 +373,43 @@ int modem_go(struct modem *m, enum DP_ID dp_id)
 {
 	int ret;
 	trace("..");
+	m->data = 0;
+	m->command = 0;
 	if((ret = modem_set_hook(m, 1)) < 0) {
 		err("cannot set hook\n");
-		goto _err;
+		goto _error;
 	}
 	if((ret = modem_start(m)) < 0) {
 		err("cannot start modem\n");
-		goto _err;
+		goto _error;
 	}
 	if((ret = modem_switch_datapump(m, dp_id)) < 0) {
 		err("cannot switch dp\n");
-		goto _err;
+		goto _error;
 	}
-	// FIXME: bit coder should be dependent on DP and DP state (CONNECT)
 	async_bitque_reset(&m->rx_bitque);
 	async_bitque_reset(&m->tx_bitque);
-	m->get_bits = async_bitque_get_bits;
-	m->put_bits = async_bitque_put_bits;
 	fifo_reset(&m->rx_fifo);
 	fifo_reset(&m->tx_fifo);
-	m->get_chars = modem_get_chars;
-	m->put_chars = modem_put_chars;
+	modem_update_status(m, STATUS_CONNECTING);
 	return 0;
-_err:
+ _error:
 	modem_set_hook(m, 0);
 	modem_stop(m);
 	return ret;
 }
+
 
 int modem_dial(struct modem *m, const char *dial_string)
 {
 	int ret;
 	trace("%s...", dial_string);
 	m->caller = 1;
+	m->signals_to_detect = MASK(SIGNAL_2100)|MASK(SIGNAL_ANSAM)|
+		MASK(SIGNAL_2225)|MASK(SIGNAL_2245);
+	m->signals_detected = 0;
 	strncpy(m->dial_string, dial_string, sizeof(m->dial_string));
 	ret = modem_go(m, DP_DIALER);
-	m->next_dp_id = DP_DETECTOR;
 	return ret;
 }
 
@@ -354,7 +439,7 @@ static void modem_reset(struct modem *m)
 	m->next_dp_id = 0;
 	if (m->datapump.id) {
 		m->datapump.op->delete(m->datapump.dp);
-		m->datapump = (struct datapump) {};
+		m->datapump.id = 0;
 	}
 	fifo_reset(&m->rx_fifo);
 	fifo_reset(&m->tx_fifo);
@@ -362,19 +447,14 @@ static void modem_reset(struct modem *m)
 	modem_set_hook(m, 0);
 }
 
-#define MODEM_NAME "big-m"
-#define MODEM_DESC "Sasha'k softmodem"
-#define MODEM_VERSION "0.000002 (or less)"
+#define MODEM_NAME "MA (modem again)"
+#define MODEM_DESC "sashak's softmodem attempt"
+#define MODEM_VERSION "0.000003"
 
 struct modem *modem_create(int tty, const char *drv_name)
 {
 	struct modem *m;
 	const struct modem_driver *drv;
-
-	if(!isatty(tty)) {
-		err("file descriptor %d is not tty\n", tty);
-		return NULL;
-	}
 
 	drv = find_modem_driver(drv_name);
 	if(!drv) {
@@ -388,18 +468,25 @@ struct modem *modem_create(int tty, const char *drv_name)
 	memset(m, 0, sizeof(*m));
 
 	m->name = MODEM_NAME;
-	m->tty = tty;
-	m->tty_name = ttyname(tty);
 	m->driver = drv;
+	m->tty = tty;
+	m->is_tty = isatty(tty);
+
+	if (m->is_tty) {
+		m->tty_name = ttyname(tty);
+		tcgetattr(tty, &m->termios);
+	}
+	else {
+		m->tty_name = "nottty";
+		dbg("warn: %d (%s) is not a tty\n", m->tty, m->tty_name);
+	}
 
 	sregs_reset(m);
-
-	tcgetattr(tty, &m->termios);
 
 	m->dev = m->driver->open(m, modem_device_name);
 	if (m->dev < 0) {
 		err("cannot open device.\n");
-		goto error;
+		goto _error;
 	}
 
 	info("%s - %s, version %s\ndriver is \'%s\', tty is \'%s\'\n",
@@ -407,14 +494,18 @@ struct modem *modem_create(int tty, const char *drv_name)
 			m->driver->name, m->tty_name);
 
 	return m;
-  error:
+ _error:
 	free(m);
 	return NULL;
 }
 
 void modem_delete(struct modem *m)
 {
-	if(m->dev)
+	trace();
+	if (m->started)
+		modem_stop(m);
+	modem_reset(m);
+	if (m->dev)
 		m->driver->close(m);
 	free(m);
 }

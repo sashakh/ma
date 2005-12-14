@@ -31,6 +31,7 @@
 #include "m.h"
 
 const static char *known_modulation_tests[] = {
+	[DP_DETECTOR] = "detector",
 	[DP_V21] = "v21",
 	[DP_V22] = "v22",
 	[DP_LAST] = NULL,
@@ -63,7 +64,11 @@ static int mtest(unsigned dp_id)
 	m = modem_create(0, modem_driver_name);
 	if (!m)
 		return -1;
+
 	m->caller = 1;
+	m->signals_to_detect |= MASK(SIGNAL_2100)|MASK(SIGNAL_ANSAM)|
+		MASK(SIGNAL_2225)|MASK(SIGNAL_2245);
+
 	ret = modem_go(m, dp_id);
 	if (ret < 0) {
 		dbg("cannot go with modem.\n");
@@ -80,7 +85,7 @@ int main(int argc, char *argv[])
 {
 	unsigned dp_id = 0;
 	int ret;
-	modulation_test = "v21";
+	modulation_test = "detector";
 	modem_driver_name = "file";
 	modem_device_name = "samples.in";
 	debug_level = 1;

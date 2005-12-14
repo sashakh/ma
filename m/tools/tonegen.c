@@ -31,7 +31,7 @@
 #define SAMP_RATE (8000)
 #define AMP (1<<14)
 
-//#define FREQ 2225
+//#define FREQ 2245
 #define FREQ (1200*2)
 
 struct tonegen_state {
@@ -51,14 +51,17 @@ int tone_generate(struct tonegen_state *s, int16_t * buf, unsigned count)
 			phase += M_PI / 2.;
 		if (!(s->count % 640))
 			phase += M_PI / 2.;
-#endif
-#if 0
-		if (!(s->count % 13))
-			phase += M_PI / 2.;
-#endif
-		fprintf(stderr, "%d: phase = %f\n", s->count, phase);
-		buf[i] = (int16_t) (AMP * sin(phase));
 		s->count++;
+#endif
+#if 1
+		if (s->count >= SAMP_RATE) {
+			s->count -= SAMP_RATE;
+			phase += M_PI / 2.;
+		}
+		s->count += 600;
+#endif
+		//fprintf(stderr, "%d: phase = %f\n", s->count, phase);
+		buf[i] = (int16_t) (AMP * sin(phase));
 		phase += M_PI * 2 * FREQ / SAMP_RATE;
 	}
 	//s->phase = phase/(M_PI*2);

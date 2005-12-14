@@ -38,9 +38,8 @@ struct scrambler {
 
 struct v22_struct {
 	struct modem *modem;
-	unsigned count;
-	unsigned timeout;
-	void (*timeout_handler)(struct v22_struct *s);
+	unsigned count1, count2; /* for negotiation flow */
+	unsigned samples_count;
 	struct psk_demodulator dem;
 	struct psk_modulator   mod;
 	struct scrambler scram, descr;
@@ -56,6 +55,12 @@ struct v22_struct {
 };
 
 
+static void v22_run_dem(struct v22_struct *s, int16_t *in, int16_t *out, unsigned cnt);
+static void v22_run_mod(struct v22_struct *s, int16_t *in, int16_t *out, unsigned cnt);
+static void v22_run_both(struct v22_struct *s, int16_t *in, int16_t *out, unsigned cnt);
+
+
+/* scrambler */
 
 static unsigned scramble_bit(struct scrambler *s, unsigned bit)
 {
@@ -89,6 +94,9 @@ static unsigned descramble_bit(struct scrambler *s, unsigned bit)
 	return bit&1;
 }
 
+
+/* get/put symbol stuff - negotiation flow is here too */
+
 static unsigned v22_get_data_symbol(struct modem *m)
 {
 	struct scrambler *s = &((struct v22_struct *)(m->datapump.dp))->scram;
@@ -98,11 +106,10 @@ static unsigned v22_get_data_symbol(struct modem *m)
 
 static void v22_put_data_symbol(struct modem *m, unsigned symbol)
 {
-	struct scrambler *s = &((struct v22_struct *)(m->datapump.dp))->descr;
-	modem_put_bits(m, descramble_bit(s, (symbol>>1)&1), 1);
-	modem_put_bits(m, descramble_bit(s, symbol&1), 1);
+	struct scrambler *d = &((struct v22_struct *)(m->datapump.dp))->descr;
+	modem_put_bits(m, descramble_bit(d, (symbol>>1)&1), 1);
+	modem_put_bits(m, descramble_bit(d, symbol&1), 1);
 }
-
 
 static unsigned v22_get_scram_symbol(struct modem *m)
 {
@@ -114,14 +121,37 @@ static void v22_put_scram_symbol(struct modem *m, unsigned symbol)
 {
 	struct v22_struct *s = (struct v22_struct *)m->datapump.dp;
 	struct scrambler *d = &s->descr;
-	unsigned n = 2;
-	while (n--) {
-		unsigned bit = descramble_bit(d, (symbol >> n)&1);
-		/* count scrambled bits here */
-		bit = 0;
+	unsigned bits;
+	unsigned mask;
+	
+	bits = (descramble_bit(d, (symbol>>1)&1) << 1)|
+		descramble_bit(d, symbol&1);
+	mask = (1 << 2) - 1;
+
+	if (bits == mask || s->count1 > 162) { /* bits: 600*0.270 sec */
+		s->count1++;
+		s->count2 += (bits != mask);
+	}
+	else
+		s->count1 = s->count2 = 0;
+	
+	if (!s->modem->caller && s->count1 == 162)
+		s->mod.get_symbol = v22_get_scram_symbol;
+
+	if (s->count1 > 621) {	/* bits: 600*(0.270 + 0.765)sec */
+		if(s->count2 < 4) { /* up to 3 errors */
+			dbg("%d: v22 enters data state (err=%d).\n",
+				s->samples_count, s->count2);
+			s->dem.put_symbol = v22_put_data_symbol;
+			s->mod.get_symbol = v22_get_data_symbol;
+			modem_update_status(s->modem, STATUS_DP_CONNECT);
+			s->count1 = 0;
+		}
+		else /* another chance */
+			s->count1 = 164;
+		s->count2 = 0;
 	}
 }
-
 
 static unsigned v22_get_raw_symbol(struct modem *m)
 {
@@ -131,9 +161,27 @@ static unsigned v22_get_raw_symbol(struct modem *m)
 static void v22_put_raw_symbol(struct modem *m, unsigned symbol)
 {
 	struct v22_struct *s = (struct v22_struct *)m->datapump.dp;
-	unsigned n = 2;
-	while (n--) {
-		/* count raw bits here */
+	unsigned mask = (1 << 2) - 1;
+
+	if ((symbol&mask) == mask || s->count1 > 93) { /* bits: 600*0.155 sec */
+		s->count1 ++;
+		s->count2 += ((symbol&mask) != mask);
+	}
+	else
+		s->count1 = s->count2 = 0;
+	
+	if (s->count1 > 366) {	/* bits: 600*(0.155 + 0.456)sec */
+		if(s->count2 < 4) { /* up to 3 errors */
+			dbg("%d: v22 enters scrambled state (err=%d).\n",
+				s->samples_count, s->count2);
+			s->dem.put_symbol = v22_put_scram_symbol;
+			s->mod.get_symbol = v22_get_scram_symbol;
+			s->run_func = v22_run_both;
+			s->count1 = 0;
+		}
+		else /* another chance */
+			s->count1 = 93;
+		s->count2 = 0;
 	}
 }
 
@@ -174,6 +222,8 @@ static void fbuf_free(struct fbuf *f)
 }
 
 
+/* v22 processors */
+
 static void v22_run_dem(struct v22_struct *s, int16_t *in, int16_t *out, unsigned cnt)
 {
 	fbuf_filter_samples(&s->rx_fbuf, in, s->rx_samples, cnt);
@@ -196,19 +246,6 @@ static void v22_run_both(struct v22_struct *s, int16_t *in, int16_t *out, unsign
 	fbuf_filter_samples(&s->tx_fbuf, s->tx_samples, out, cnt);
 }
 
-static inline void v22_check_timer(struct v22_struct *s, unsigned cnt)
-{
-	if (!s->timeout || (s->timeout -= cnt) > 0)
-		return;
-	s->timeout = 0;
-	if(s->timeout_handler) {
-		void (*h)(struct v22_struct *s);
-		h = s->timeout_handler;
-		s->timeout_handler = NULL;
-		h(s);
-	}
-}
-
 static int v22_process(struct modem *m, int16_t *in, int16_t *out, unsigned int count)
 {
 	struct v22_struct *s = (struct v22_struct *)m->datapump.dp;
@@ -226,11 +263,8 @@ static int v22_process(struct modem *m, int16_t *in, int16_t *out, unsigned int 
 		ret += cnt;
 		in  += cnt;
 		out += cnt;
-		v22_check_timer(s, cnt);
+		s->samples_count += cnt;
 	}
-	s->count += count;
-	if (s->count > SAMPLE_RATE*2) // FIXME: for test only
-		s->dem.put_symbol = v22_put_data_symbol;
 
 	return ret;
 }
@@ -263,53 +297,31 @@ static void *v22_create(struct modem *m)
 		return NULL;
 	memset(s, 0, sizeof(*s));
 	s->modem = m;
+	s->samples_count = m->samples_count;
 
-	if (m->caller) {
-		rx = &v22_high_ch;
-		tx = &v22_low_ch;
-	}
-	else {
-		rx = &v22_low_ch;
-		tx = &v22_high_ch;
-	}
+	rx = m->caller ? &v22_high_ch : &v22_low_ch;
+	tx = m->caller ? &v22_low_ch : &v22_high_ch;
 
 	psk_demodulator_init(&s->dem, m, rx->fc, 600);
 	psk_modulator_init(&s->mod, m, tx->fc, 600);
 	if (fbuf_init(&s->rx_fbuf, rx->rx_fir, rx->rx_fir_size) < 0 ||
-		fbuf_init(&s->tx_fbuf, tx->filter, tx->filter_size) < 0)
-		goto _error;
+		fbuf_init(&s->tx_fbuf, tx->filter, tx->filter_size) < 0) {
+		free(s);
+		return NULL;
+	}
 
 	if (m->caller) {
-		/* if equiv of unscrambled 1s signal recieved */
-		if ( 1 /*modem->signal_mask&(SIG_2225|SIG_2245)*/) {
-			s->dem.put_symbol = v22_put_scram_symbol;
-			s->run_func = v22_run_both;
-		}
-		else {
-			s->run_func = v22_run_dem;
-			s->dem.put_symbol = v22_put_raw_symbol;
-		}
+		s->run_func = v22_run_dem;
+		s->dem.put_symbol = v22_put_raw_symbol;
 		s->mod.get_symbol = v22_get_scram_symbol;
 	}
 	else {
-		/* if equiv of unscrambled 1s signal transmitted */
-		if ( 1 /*modem->signal_mask&(SIG_2225|SIG_2245)*/) {
-			s->run_func = v22_run_both;
-			s->dem.put_symbol = v22_put_scram_symbol;
-			s->mod.get_symbol = v22_get_scram_symbol;
-		}
-		else {
-			s->run_func = v22_run_mod;
-			s->dem.put_symbol = v22_put_scram_symbol;
-			s->dem.put_symbol = v22_put_raw_symbol; /* or scram */
-			s->mod.get_symbol = NULL; /* or get_raw_symbol */
-		}
+		s->run_func = v22_run_mod;
+		s->dem.put_symbol = v22_put_scram_symbol;
+		s->mod.get_symbol = v22_get_raw_symbol;
 	}
-	
+
 	return s;
-_error:
-	free(s);
-	return NULL;
 }
 
 static void v22_delete(void *data)

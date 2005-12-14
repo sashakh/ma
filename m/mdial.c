@@ -24,30 +24,94 @@
  *  mdial.c - m dialer application
  */
 
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <errno.h>
+#include <signal.h>
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "m.h"
 
-static int mdial(void)
+int make_terminal(void)
 {
-	struct modem *m;
+	int pty;
+	if((pty = posix_openpt(O_RDWR)) < 0 ||
+			grantpt(pty) < 0 || unlockpt(pty) < 0) {
+		err("openpt failed: %s\n", strerror(errno));
+		return -1;
+	}
+	return pty;
+}
+
+int setup_terminal(int tty)
+{
+	struct termios termios;
 	int ret;
 
-	m = modem_create(0, modem_driver_name);
+	fcntl(tty, F_SETFL, O_NONBLOCK);
+
+	if (!isatty(tty))
+		return 0;
+	if ((ret = tcgetattr(tty, &termios)) < 0) {
+		err("tcsetattr failed: %s\n", strerror(errno));
+		return ret;
+	}
+
+	cfmakeraw(&termios);
+	cfsetispeed(&termios, B115200);
+	cfsetospeed(&termios, B115200);
+
+	if ((ret = tcsetattr(tty, TCSANOW, &termios)) < 0)
+		err("tcsetattr failed: %s\n", strerror(errno));
+	return ret;
+}
+
+static struct modem *mdial_modem;
+
+static void mark_killed(int signum)
+{
+	dbg("mark_killed: %d...\n", signum);
+	mdial_modem->killed = signum;
+}
+
+static int mdial(void)
+{
+	struct termios termios;
+	struct modem *m;
+	int tty = 0;
+	int ret;
+
+	tcgetattr(tty, &termios);
+	
+	m = modem_create(tty, modem_driver_name);
 	if (!m)
 		return -1;
 
+	mdial_modem = m;
+
+	setup_terminal(tty);
+
+	signal(SIGINT, mark_killed);
+	signal(SIGTERM, mark_killed);
+	
 	ret = modem_dial(m, modem_phone_number);
 	if (ret < 0) {
 		dbg("cannot dial.\n");
 		return ret;
 	}
-
+	
 	ret = modem_run(m);
 
 	modem_delete(m);
+
+	tcsetattr(tty, TCSANOW, &termios);
+	
 	return ret;
 }
 

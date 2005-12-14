@@ -1,7 +1,6 @@
 
 CFLAGS:= -Wall -g -I. -DMODEM_DEBUG
-CFLAGS:= -Wall -g -I. -Os -DMODEM_DEBUG -pg
-LDFLAGS:= -lasound -pg
+LDFLAGS:= -lasound
 
 progs:= mdial mtest mloop
 sources:= $(wildcard *.c)

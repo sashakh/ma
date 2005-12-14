@@ -70,6 +70,7 @@ static int dtmfgen_process(struct dtmfgen_state *s, int16_t *buf, unsigned count
 			if (!p || !*p)
 				break;
 			s->p++;
+			dbg("dtmfgen: %c...\n", *p);
 			idx = p - dtmf_trans;
 			s->phase_low = s->phase_high = 0;
 			s->phinc_low = dtmf_phinc_low[idx/4];
@@ -118,12 +119,12 @@ static int detector_process(struct detector_state *s, int16_t *buf, unsigned int
  */
 
 enum dialer_states {
-	STATE_WAIT, STATE_DIAL
+	STATE_WAIT, STATE_DIAL, STATE_FINISHED
 };
 
 #ifdef MODEM_DEBUG
 static const char *dialer_state_names[] = {
-	"WAIT","DIAL","DETECT"
+	"WAIT","DIAL","FINISHED"
 };
 #define STATE_NAME(name) dialer_state_names[name]
 #endif
@@ -142,7 +143,6 @@ static int dialer_process(struct modem *m, int16_t *in, int16_t *out, unsigned i
 	enum dialer_states new_state;
 	const char *p;
 	int ret = 0;
-	trace();
 	
 	switch (s->state) {
 	case STATE_WAIT:
@@ -152,6 +152,8 @@ static int dialer_process(struct modem *m, int16_t *in, int16_t *out, unsigned i
 	case STATE_DIAL:
 		ret = dtmfgen_process(&s->dtmfgen, out, count);
 		break;
+	default:
+		return -1;
 	}
 	if (ret == count)
 		return count;
@@ -165,7 +167,8 @@ static int dialer_process(struct modem *m, int16_t *in, int16_t *out, unsigned i
 		p = s->d_ptr++;
 	if (*p == '\0') {
 		dbg("dialer finished\n");
-		return ret; /* finished */
+		m->next_dp_id = DP_DETECTOR;
+		new_state = STATE_FINISHED;
 	}
 	else if ( tolower(*p) == 'w' || *p == ',') {
 		unsigned int pause_time = m->sregs[8] > 0 ? m->sregs[8] : 2;

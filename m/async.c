@@ -28,21 +28,20 @@ const static uint8_t _reversed_bits[] = {
 	0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe,
 	0x1, 0x9, 0x5, 0xd, 0x3, 0xb, 0x7, 0xf,
 };
-#define reverse_bits(a) (_reversed_bits[(a)&0xf] << 4|_reversed_bits[(a)>>4])
 
+#define reverse_bits(a) (_reversed_bits[(a)&0xf] << 4|_reversed_bits[(a)>>4])
 
 void async_bitque_put_bits(struct modem *m, unsigned bits, unsigned num)
 {
 	struct async_bitque *q = &m->rx_bitque;
-	//dbg("putbits= %u\n", bits&((1<<num)-1));
 	q->data <<= num;
-	q->data |= bits&((1<<num) - 1);
+	q->data |= bits & ((1 << num) - 1);
 	q->bits += num;
-	while (q->bits && (q->data >> (q->bits - 1))&1)
+	while (q->bits && ((q->data >> (q->bits - 1)) & 1))
 		q->bits--;
 	if (q->bits >= 10) {
 		uint8_t ch = (q->data >> (q->bits - 9)) & 0xff;
-		if(!(q->data>>(q->bits - 10)&1))
+		if (!(q->data >> (q->bits - 10) & 1))
 			dbg("async: no stop bit\n");
 		q->bits -= 10;
 		ch = reverse_bits(ch);
@@ -55,22 +54,20 @@ void async_bitque_put_bits(struct modem *m, unsigned bits, unsigned num)
 unsigned async_bitque_get_bits(struct modem *m, unsigned num)
 {
 	struct async_bitque *q = &m->tx_bitque;
-	unsigned bits = 0xf;
-#if 0
-	if(!q->bits && m->get_chars && m->get_chars(m, &ch, 1) >= 0) {
-		q->data <<= 10;
-		q->data |= (ch<<1)&0x1ff;
-		q->bits += 10;
+	if (q->bits < num) {
+		uint8_t ch;
+		if (m->get_chars && m->get_chars(m, &ch, 1) > 0) {
+			ch = reverse_bits(ch);
+			q->data <<= 10;
+			q->data |= ((ch << 1) | 1) & 0x1ff;
+			q->bits += 10;
+		}
+		else {
+			q->data <<= num - q->bits;
+			q->data |= ((1 << (num - q->bits)) - 1);
+			q->bits = num;
+		}
 	}
-#endif
-	if(q->bits >= num) {
-		q->bits -= num;
-		bits = (q->data>>(q->bits-num))&((1<<num)-1);
-	}
-	else {
-		q->bits = 0;
-		bits = ((q->data&((1<<q->bits)-1))<<(num-q->bits))|((1<<(num-q->bits))-1);
-	}
-	//dbg("getbit= %u\n", bit);
-	return bits & ((1<<num) - 1);
+	q->bits -= num;
+	return (q->data >> q->bits) & ((1 << num) - 1);
 }

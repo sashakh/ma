@@ -24,6 +24,8 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <string.h>
+#include <errno.h>
 #include <fcntl.h>
 
 #include "m.h"
@@ -48,7 +50,7 @@ static int create_log_file(unsigned id)
 	if (!log_dir_name[0]) {
 		sprintf(log_dir_name, "logs.%d", getpid());
 		if (mkdir(log_dir_name, 0755) < 0) {
-			perror("mkdir");
+			err("mkdir: %s\n", strerror(errno));
 			return -1;
 		}
 	}
@@ -56,7 +58,7 @@ static int create_log_file(unsigned id)
 		(id >= arrsize(log_names) || !log_names[id]) ?
 		"misc.data" : log_names[id]);
 	if ((fd = creat(file_name, 0644)) < 0) {
-		perror("creat");
+		err("creat: %s\n", strerror(errno));
 		return fd;
 	}
 	return fd;

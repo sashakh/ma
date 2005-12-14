@@ -45,10 +45,36 @@ enum DP_ID {
 	DP_DETECTOR,
 	DP_V21,
 	DP_V22,
-	DP_LAST
+	DP_LAST,
+	DP_FAIL = 255
+};
+
+enum SIGNAL_ID {
+	SIGNAL_NONE = 0,
+	SIGNAL_2100,
+	SIGNAL_ANSAM,
+	SIGNAL_2245,
+	SIGNAL_2225,
+	SIGNAL_V21,
+	SIGNAL_V22,
+	SIGNAL_LAST,
+};
+
+enum MODEM_STATUS {
+	STATUS_NONE = 0,
+	STATUS_CONNECTING,
+	STATUS_DP_TIMEOUT,
+	STATUS_DP_CONNECT,
 };
 
 struct modem;
+
+struct signal_desc {
+	const char *name;
+	unsigned freq;
+	/* add more stuff here */
+};
+
 
 struct modem_driver {
 	const char *name;
@@ -61,6 +87,7 @@ struct modem_driver {
 	int (*ctrl) (struct modem * m, unsigned int cmd, unsigned long arg);
 };
 
+
 struct dp_operations {
 	void *(*create) (struct modem * m);
 	int (*process) (struct modem * m, int16_t * in, int16_t * out,
@@ -69,40 +96,24 @@ struct dp_operations {
 	void (*delete) (void *dp_data);
 } *dp_op;
 
-struct fifo {
-	unsigned int head;
-	unsigned int tail;
-	unsigned char buf[4096];
-};
-
-static inline void fifo_reset(struct fifo *f)
-{
-	f->head = f->tail = 0;
-}
-static inline unsigned fifo_room(struct fifo *f)
-{
-	return sizeof(f->buf) - (f->head - f->tail);
-}
-
-extern unsigned fifo_get(struct fifo *f, unsigned char *buf, unsigned count);
-extern unsigned fifo_put(struct fifo *f, unsigned char *buf, unsigned count);
 
 struct async_bitque {
 	unsigned int bits;
 	unsigned long data;
 };
 
-static inline void async_bitque_reset(struct async_bitque *q)
-{
-	q->bits = 0;
-}
 
-extern void async_bitque_put_bits(struct modem *m, unsigned bits, unsigned num);
-extern unsigned async_bitque_get_bits(struct modem *m, unsigned num);
+struct fifo {
+	unsigned int head;
+	unsigned int tail;
+	unsigned char buf[4096];
+};
+
 
 struct modem {
 	const char *name;
 	int tty, dev;
+	unsigned is_tty;
 	const char *tty_name, *dev_name;
 	const struct modem_driver *driver;
 	void *device_data;
@@ -112,6 +123,13 @@ struct modem {
 	unsigned int caller;
 	unsigned int hook_state;
 	unsigned int started;
+	/* states for write/get,put chars */
+	unsigned int command;
+	unsigned int data;
+	/* for detector */
+	unsigned int signals_to_detect;
+	unsigned int signals_detected;
+	/* main process proc */
 	int (*process) (struct modem * m, int16_t * in, int16_t * out,
 			unsigned int count);
 	unsigned int samples_timer;
@@ -133,7 +151,32 @@ struct modem {
 	char dial_string[128];
 };
 
-/* prototypes */
+
+/*
+ * prototypes
+ */
+
+static inline void fifo_reset(struct fifo *f)
+{
+	f->head = f->tail = 0;
+}
+
+static inline unsigned fifo_room(struct fifo *f)
+{
+	return sizeof(f->buf) - (f->head - f->tail);
+}
+
+extern unsigned fifo_get(struct fifo *f, unsigned char *buf, unsigned count);
+extern unsigned fifo_put(struct fifo *f, unsigned char *buf, unsigned count);
+
+static inline void async_bitque_reset(struct async_bitque *q)
+{
+	q->bits = 0;
+}
+
+extern void async_bitque_put_bits(struct modem *m, unsigned bits, unsigned num);
+extern unsigned async_bitque_get_bits(struct modem *m, unsigned num);
+
 extern struct modem *modem_create(int tty, const char *drv_name);
 extern void modem_delete(struct modem *m);
 extern int modem_go(struct modem *m, enum DP_ID dp_id);
@@ -142,6 +185,9 @@ extern int modem_run(struct modem *m);
 extern int modem_process(struct modem *m, int16_t * in, int16_t * out,
 			 unsigned int count);
 extern int modem_set_hook(struct modem *m, unsigned int hook_off);
+
+extern void modem_update_status(struct modem *m, enum MODEM_STATUS status);
+extern void modem_update_signals(struct modem *m, unsigned int signals);
 
 static inline unsigned modem_get_bits(struct modem *m, unsigned num)
 {
@@ -160,7 +206,13 @@ extern const struct dp_operations *find_dp_operations(unsigned int id);
 /* command line parser */
 extern int parse_cmdline(int argc, char **argv);
 
-/* global parameters */
+
+/*
+ * global stuff
+ */
+
+extern const struct signal_desc signal_descs[SIGNAL_LAST];
+
 extern unsigned int verbose_level;
 extern unsigned int debug_level;
 extern unsigned int log_level;
@@ -169,12 +221,19 @@ extern const char *modem_device_name;
 extern const char *modem_phone_number;
 extern const char *modulation_test;
 
-/* misc helpers */
+
+/*
+ * misc helpers
+ */
+
 #define arrsize(a) (sizeof(a)/sizeof((a)[0]))
 #define samples_in_sec(sec) ((SAMPLE_RATE)*(sec))
 #define samples_in_msec(msec) (((SAMPLE_RATE)*(msec))/1000)
 
+#define MASK(bit) (1 << (bit))
+
 #define info(fmt, arg...) fprintf(stderr, fmt, ##arg )
+
 
 /*
  * debug stuff
@@ -191,7 +250,7 @@ extern int log_samples(unsigned id, int16_t * buf, unsigned size);
 extern int log_printf(unsigned level, const char *fmt, ...);
 
 #define dbg(fmt, arg...) log_printf(1, fmt, ##arg)
-#define trace(fmt, arg...) dbg(__FILE__ ": %s: %s: " fmt "\n", m->name, __FUNCTION__, ##arg)
+#define trace(fmt, arg...) dbg(__FILE__ ":%s: " fmt "\n", __FUNCTION__, ##arg)
 
 #undef info
 #define info(fmt, arg...) log_printf(0, fmt, ##arg )

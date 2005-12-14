@@ -127,7 +127,7 @@ int psk_demodulate(struct psk_demodulator *p, int16_t *buf, unsigned count)
 #endif
 
 		//d0 = ph<<13 ; log_data(22, &d0, sizeof(d0));
-		//dbg("%u: x = %08x, y = %08x ; phase = %d\n",
+		//dbg("%u: x = %d, y = %d ; phase = %d\n",
 		//	p->modem->samples_count + i, x, y, ph);
 
 		symbol = qpsk_symbols[ph];
