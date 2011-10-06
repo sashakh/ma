@@ -26,15 +26,14 @@
 #include "m.h"
 #include "m_dsp.h"
 
-
 struct v21_struct {
 	struct modem *modem;
 	struct fsk_demodulator dem;
-	struct fsk_modulator   mod;
+	struct fsk_modulator mod;
 };
 
-
-static int v21_process(struct modem *m, int16_t *in, int16_t *out, unsigned int count)
+static int v21_process(struct modem *m, int16_t * in, int16_t * out,
+		       unsigned int count)
 {
 	struct v21_struct *s = (struct v21_struct *)m->datapump.dp;
 	int ret = 0;
@@ -47,8 +46,8 @@ static int v21_process(struct modem *m, int16_t *in, int16_t *out, unsigned int 
 	return count;
 }
 
-#define V21_CHAN1_FREQ 1080 /* +/- 100 caller -> amswer */
-#define V21_CHAN2_FREQ 1750 /* +/- 100 answer -> caller */
+#define V21_CHAN1_FREQ 1080	/* +/- 100 caller -> amswer */
+#define V21_CHAN2_FREQ 1750	/* +/- 100 answer -> caller */
 
 static void *v21_create(struct modem *m)
 {
@@ -61,8 +60,7 @@ static void *v21_create(struct modem *m)
 	if (m->caller) {
 		fsk_demodulator_init(&s->dem, m, 1850, 1650, 300);
 		fsk_modulator_init(&s->mod, m, 1180, 980, 300);
-	}
-	else {
+	} else {
 		fsk_demodulator_init(&s->dem, m, 1180, 980, 300);
 		fsk_modulator_init(&s->mod, m, 1850, 1650, 300);
 	}

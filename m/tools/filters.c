@@ -185,7 +185,7 @@ static void show_freq_domain_fftw3(const char *name, const double *buf,
 	fftw_free(in);
 	fftw_free(out);
 }
-#endif	/* USE_FFTW3 */
+#endif /* USE_FFTW3 */
 
 static void show_freq_domain_slow_dft(const char *name, const double *buf,
 				      unsigned size)

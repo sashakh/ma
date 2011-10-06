@@ -58,4 +58,4 @@ extern void dump_freq_for_plot(const char *name, double *mag, double *ph,
 extern void dump_filter_for_plot(const char *name, double *filter,
 				 unsigned taps, unsigned size);
 
-#endif	/* __GEN_TABLES_H__ */
+#endif /* __GEN_TABLES_H__ */

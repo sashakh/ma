@@ -66,8 +66,8 @@ static int mtest(unsigned dp_id)
 		return -1;
 
 	m->caller = 1;
-	m->signals_to_detect |= MASK(SIGNAL_2100)|MASK(SIGNAL_ANSAM)|
-		MASK(SIGNAL_2225)|MASK(SIGNAL_2245);
+	m->signals_to_detect |= MASK(SIGNAL_2100) | MASK(SIGNAL_ANSAM) |
+	    MASK(SIGNAL_2225) | MASK(SIGNAL_2245);
 
 	ret = modem_go(m, dp_id);
 	if (ret < 0) {

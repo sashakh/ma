@@ -42,47 +42,52 @@ static struct cmdline_option {
 	const char *name;
 	int val;
 	const char *description;
-	void (*action)(void);
+	void (*action) (void);
 	int has_arg;
 	int arg_type;
 	void *arg_val;
 } cmdline_options[] = {
-	{"usage", 'u', "this message", show_usage},
-	{"help", 'h', "this help message", show_usage},
-	//{"verbose", 'v', "verbose level", NULL, 2, OPTARG_INT, &verbose_level},
-	//{"verbose", 'v', "verbose mode"},
-	{"debug", 'd', "debug level", NULL, 2, OPTARG_INT, &debug_level},
-	{"log", 'l', "logging mode", NULL, 2, OPTARG_INT, &log_level},
-	{"modem", 'm', "modem driver", NULL, 1, OPTARG_STR, &modem_driver_name},
-	{"device", 'D', "device name", NULL, 1, OPTARG_STR, &modem_device_name},
-	{"number", 'n', "preset phone number", NULL, 1 , OPTARG_STR, &modem_phone_number },
-	{"test", 't', "test modulation (mtest only)", NULL, 1, OPTARG_STR, &modulation_test },
-	{"jopa", 0, "jopa kakaya-to", NULL, 1},
+	{
+	"usage", 'u', "this message", show_usage}, {
+	"help", 'h', "this help message", show_usage},
+	    //{"verbose", 'v', "verbose level", NULL, 2, OPTARG_INT, &verbose_level},
+	    //{"verbose", 'v', "verbose mode"},
+	{
+	"debug", 'd', "debug level", NULL, 2, OPTARG_INT, &debug_level}, {
+	"log", 'l', "logging mode", NULL, 2, OPTARG_INT, &log_level}, {
+	"modem", 'm', "modem driver", NULL, 1, OPTARG_STR, &modem_driver_name},
+	{
+	"device", 'D', "device name", NULL, 1, OPTARG_STR, &modem_device_name},
+	{
+	"number", 'n', "preset phone number", NULL, 1, OPTARG_STR,
+		    &modem_phone_number}, {
+	"test", 't', "test modulation (mtest only)", NULL, 1,
+		    OPTARG_STR, &modulation_test}, {
+	"jopa", 0, "jopa kakaya-to", NULL, 1},
 #if 0
-	{"group", 'g', "group"},
-	{"perm", 'p', "port node permission"},
+	{
+	"group", 'g', "group"}, {
+	"perm", 'p', "port node permission"},
 #endif
-	{0, 0, 0, 0}
+	{
+	0, 0, 0, 0}
 };
 
 const char *prog_name = "thisprog";
-
 
 static void show_usage()
 {
 	struct cmdline_option *opt = cmdline_options;
 	info("Usage: %s [options] [device]\n", prog_name);
-	while(opt->name) {
-		int n = opt->val ?
-			info(" -%c,", opt->val) :
-			info("    ");
+	while (opt->name) {
+		int n = opt->val ? info(" -%c,", opt->val) : info("    ");
 		n += info(" --%s", opt->name);
-		if(opt->has_arg)
+		if (opt->has_arg)
 			n += info("%s=VAL%s",
-					opt->has_arg == 2 ? "[" : "",
-					opt->has_arg == 2 ? "]" : "");
-		n += info("%*s", 24-n, "");
-		n+= info("%s", opt->description);
+				  opt->has_arg == 2 ? "[" : "",
+				  opt->has_arg == 2 ? "]" : "");
+		n += info("%*s", 24 - n, "");
+		n += info("%s", opt->description);
 		if (opt->has_arg && opt->arg_val) {
 			n += info("; default: ");
 			if (opt->arg_type == OPTARG_INT)
@@ -115,12 +120,12 @@ int parse_cmdline(int argc, char *argv[])
 
 	memset(long_options, 0, sizeof(long_options));
 	n = sprintf(opt_string, ":");
-	while(opt->name) {
+	while (opt->name) {
 		if (opt->val)
 			n += snprintf(opt_string + n, sizeof(opt_string) - n,
-					"%c%s%s", opt->val,
-					opt->has_arg ? ":" : "",
-					opt->has_arg > 1 ? ":" : "");
+				      "%c%s%s", opt->val,
+				      opt->has_arg ? ":" : "",
+				      opt->has_arg > 1 ? ":" : "");
 		long_options[index].name = opt->name;
 		long_options[index].val = opt->val;
 		long_options[index].has_arg = opt->has_arg;
@@ -134,61 +139,59 @@ int parse_cmdline(int argc, char *argv[])
 		index = 0;
 
 		c = getopt_long_only(argc, argv, opt_string,
-				long_options, &index);
+				     long_options, &index);
 		if (c == -1)
 			break;
 
 		local_dbg("** "
-				"getopt: ret = %d '%c', index = %d,"
-				" optind = %d optopt = %d optarg = %p %s\n",
-				c, c, index, optind, optopt,
-				optarg, optarg ? optarg : "");
+			  "getopt: ret = %d '%c', index = %d,"
+			  " optind = %d optopt = %d optarg = %p %s\n",
+			  c, c, index, optind, optopt,
+			  optarg, optarg ? optarg : "");
 		opt = NULL;
 		if (c == '?') {
-			info("unknown option: %d '%c'\n",
-					optopt, optopt);
+			info("unknown option: %d '%c'\n", optopt, optopt);
 			goto _error;
-		}
-		else if (c == ':')
+		} else if (c == ':')
 			c = optopt;
 		if (index)
 			opt = &cmdline_options[index];
-		else for ( opt = cmdline_options ; opt->name ; opt++ )
-			if (opt->val == c)
-				break;
+		else
+			for (opt = cmdline_options; opt->name; opt++)
+				if (opt->val == c)
+					break;
 		if (!opt || !opt->name)
 			goto _error;
 
 		if (opt->has_arg == 1 && !optarg) {
-			info("option '%s' requeres argument\n",
-					opt->name);
+			info("option '%s' requeres argument\n", opt->name);
 			goto _error;
 		}
-		if (opt->has_arg == 2 && !optarg && argv[optind] && *argv[optind] != '-'
-				&& (opt->arg_type == OPTARG_STR || is_optarg_int(argv[optind]))) {
+		if (opt->has_arg == 2 && !optarg && argv[optind]
+		    && *argv[optind] != '-' && (opt->arg_type == OPTARG_STR
+						|| is_optarg_int(argv[optind])))
+		{
 			optarg = argv[optind++];
 		}
 		if (opt->has_arg && optarg && opt->arg_type == OPTARG_INT &&
-				!is_optarg_int(optarg)) {
+		    !is_optarg_int(optarg)) {
 			info("option '%s' requeres integer argument\n",
-					opt->name);
+			     opt->name);
 			goto _error;
 		}
 
-		local_dbg("++ opt %d '%c' \"%s\" is found\n",
-				c, c, opt->name);
+		local_dbg("++ opt %d '%c' \"%s\" is found\n", c, c, opt->name);
 
 		if (opt->action)
 			opt->action();
-		
+
 		if (!opt->has_arg || !optarg)
 			continue;
 
 		if (opt->arg_type == OPTARG_INT) {
 			int val = strtol(optarg, NULL, 0);
 			*((int *)opt->arg_val) = val;
-		}
-		else
+		} else
 			*((char **)opt->arg_val) = optarg;
 	}
 
@@ -200,7 +203,7 @@ int parse_cmdline(int argc, char *argv[])
 	}
 
 	return 0;
-  _error:
+_error:
 	show_usage();
 	exit(2);
 }

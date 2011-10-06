@@ -61,8 +61,7 @@ unsigned async_bitque_get_bits(struct modem *m, unsigned num)
 			q->data <<= 10;
 			q->data |= ((ch << 1) | 1) & 0x1ff;
 			q->bits += 10;
-		}
-		else {
+		} else {
 			q->data <<= num - q->bits;
 			q->data |= ((1 << (num - q->bits)) - 1);
 			q->bits = num;

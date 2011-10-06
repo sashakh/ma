@@ -41,6 +41,7 @@ const char *log_names[] = {
 };
 
 static int log_fds[32] = { };
+
 static char log_dir_name[64];
 
 static int create_log_file(unsigned id)

@@ -115,4 +115,4 @@ extern int psk_modulator_init(struct psk_modulator *p, struct modem *m,
 extern int psk_modulate(struct psk_modulator *p, int16_t * buf,
 			unsigned int count);
 
-#endif	/* __M_DSP_H__ */
+#endif /* __M_DSP_H__ */

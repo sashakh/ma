@@ -38,8 +38,10 @@
 
 #define PHINC(f) ((f)*COSTAB_SIZE/SAMPLE_RATE)
 
-static const int16_t dtmf_phinc_low[]  = { PHINC(697), PHINC(770), PHINC(852), PHINC(941) };
-static const int16_t dtmf_phinc_high[] = { PHINC(1209), PHINC(1336), PHINC(1477), PHINC(1633) };
+static const int16_t dtmf_phinc_low[] =
+    { PHINC(697), PHINC(770), PHINC(852), PHINC(941) };
+static const int16_t dtmf_phinc_high[] =
+    { PHINC(1209), PHINC(1336), PHINC(1477), PHINC(1633) };
 static const char dtmf_trans[] = "123A456B789C*0#D";
 
 /* dtmf stuff */
@@ -60,10 +62,11 @@ void dtmfgen_init(struct dtmfgen_state *s, const char *dial_string)
 	s->pause_duration = samples_in_msec(100);
 }
 
-static int dtmfgen_process(struct dtmfgen_state *s, int16_t *buf, unsigned count)
+static int dtmfgen_process(struct dtmfgen_state *s, int16_t * buf,
+			   unsigned count)
 {
 	int i;
-	for(i = 0 ; i < count ; i++) {
+	for (i = 0; i < count; i++) {
 		if (s->count == 0) {
 			unsigned idx;
 			const char *p = strchr(dtmf_trans, *s->p);
@@ -73,11 +76,10 @@ static int dtmfgen_process(struct dtmfgen_state *s, int16_t *buf, unsigned count
 			dbg("dtmfgen: %c...\n", *p);
 			idx = p - dtmf_trans;
 			s->phase_low = s->phase_high = 0;
-			s->phinc_low = dtmf_phinc_low[idx/4];
-			s->phinc_high = dtmf_phinc_high[idx%4];
+			s->phinc_low = dtmf_phinc_low[idx / 4];
+			s->phinc_high = dtmf_phinc_high[idx % 4];
 			s->count = s->duration;
-		}
-		else if (s->count == s->pause_duration) {
+		} else if (s->count == s->pause_duration) {
 			s->phase_low = s->phase_high = 0;
 			s->phinc_low = s->phinc_high = 0;
 		}
@@ -103,7 +105,8 @@ static void detector_init(struct detector_state *s, int count)
 	s->count = count;
 }
 
-static int detector_process(struct detector_state *s, int16_t *buf, unsigned int count)
+static int detector_process(struct detector_state *s, int16_t * buf,
+			    unsigned int count)
 {
 	int ret = s->count > count ? count : s->count;
 	s->count -= count;
@@ -111,7 +114,6 @@ static int detector_process(struct detector_state *s, int16_t *buf, unsigned int
 		s->count = 0;
 	return ret;
 }
-
 
 /*
  * Dialer stuff
@@ -124,8 +126,9 @@ enum dialer_states {
 
 #ifdef MODEM_DEBUG
 static const char *dialer_state_names[] = {
-	"WAIT","DIAL","FINISHED"
+	"WAIT", "DIAL", "FINISHED"
 };
+
 #define STATE_NAME(name) dialer_state_names[name]
 #endif
 
@@ -133,21 +136,21 @@ struct dialer_struct {
 	enum dialer_states state;
 	const char *d_ptr;
 	struct dtmfgen_state dtmfgen;
-	struct detector_state detector ;
+	struct detector_state detector;
 };
 
-
-static int dialer_process(struct modem *m, int16_t *in, int16_t *out, unsigned int count)
+static int dialer_process(struct modem *m, int16_t * in, int16_t * out,
+			  unsigned int count)
 {
 	struct dialer_struct *s = (struct dialer_struct *)m->datapump.dp;
 	enum dialer_states new_state;
 	const char *p;
 	int ret = 0;
-	
+
 	switch (s->state) {
 	case STATE_WAIT:
 		ret = detector_process(&s->detector, in, count);
-		memset(out, 0, ret*sizeof(int16_t));
+		memset(out, 0, ret * sizeof(int16_t));
 		break;
 	case STATE_DIAL:
 		ret = dtmfgen_process(&s->dtmfgen, out, count);
@@ -160,7 +163,7 @@ static int dialer_process(struct modem *m, int16_t *in, int16_t *out, unsigned i
 	if (ret < 0)
 		return ret;
 
-	memset(out + ret, 0, (count-ret)*sizeof(int16_t));
+	memset(out + ret, 0, (count - ret) * sizeof(int16_t));
 	if (s->state == STATE_DIAL)
 		p = s->d_ptr = s->dtmfgen.p;
 	else
@@ -169,18 +172,16 @@ static int dialer_process(struct modem *m, int16_t *in, int16_t *out, unsigned i
 		dbg("dialer finished\n");
 		m->next_dp_id = DP_DETECTOR;
 		new_state = STATE_FINISHED;
-	}
-	else if ( tolower(*p) == 'w' || *p == ',') {
+	} else if (tolower(*p) == 'w' || *p == ',') {
 		unsigned int pause_time = m->sregs[8] > 0 ? m->sregs[8] : 2;
 		new_state = STATE_WAIT;
 		detector_init(&s->detector, samples_in_sec(pause_time));
-	}
-	else {
+	} else {
 		new_state = STATE_DIAL;
 		dtmfgen_init(&s->dtmfgen, p);
 	}
 	dbg("dialer state: %s -> %s\n",
-		STATE_NAME(s->state), STATE_NAME(new_state));
+	    STATE_NAME(s->state), STATE_NAME(new_state));
 	s->state = new_state;
 	return count;
 }

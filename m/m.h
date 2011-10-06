@@ -75,7 +75,6 @@ struct signal_desc {
 	/* add more stuff here */
 };
 
-
 struct modem_driver {
 	const char *name;
 	int (*open) (struct modem * m, const char *dev_name);
@@ -87,7 +86,6 @@ struct modem_driver {
 	int (*ctrl) (struct modem * m, unsigned int cmd, unsigned long arg);
 };
 
-
 struct dp_operations {
 	void *(*create) (struct modem * m);
 	int (*process) (struct modem * m, int16_t * in, int16_t * out,
@@ -96,19 +94,16 @@ struct dp_operations {
 	void (*delete) (void *dp_data);
 } *dp_op;
 
-
 struct async_bitque {
 	unsigned int bits;
 	unsigned long data;
 };
-
 
 struct fifo {
 	unsigned int head;
 	unsigned int tail;
 	unsigned char buf[4096];
 };
-
 
 struct modem {
 	const char *name;
@@ -151,7 +146,6 @@ struct modem {
 	char dial_string[128];
 };
 
-
 /*
  * prototypes
  */
@@ -193,6 +187,7 @@ static inline unsigned modem_get_bits(struct modem *m, unsigned num)
 {
 	return m->get_bits ? m->get_bits(m, num) : ((1 << num) - 1);
 }
+
 static inline void modem_put_bits(struct modem *m, unsigned bits, unsigned num)
 {
 	if (m->put_bits)
@@ -205,7 +200,6 @@ extern const struct dp_operations *find_dp_operations(unsigned int id);
 
 /* command line parser */
 extern int parse_cmdline(int argc, char **argv);
-
 
 /*
  * global stuff
@@ -221,7 +215,6 @@ extern const char *modem_device_name;
 extern const char *modem_phone_number;
 extern const char *modulation_test;
 
-
 /*
  * misc helpers
  */
@@ -233,7 +226,6 @@ extern const char *modulation_test;
 #define MASK(bit) (1 << (bit))
 
 #define info(fmt, arg...) fprintf(stderr, fmt, ##arg )
-
 
 /*
  * debug stuff
@@ -267,4 +259,4 @@ extern int log_printf(unsigned level, const char *fmt, ...);
 #define log_rx_samples(buf,size) log_samples(LOG_RX_SAMPLES,buf,size)
 #define log_tx_samples(buf,size) log_samples(LOG_TX_SAMPLES,buf,size)
 
-#endif	/* __M_H__ */
+#endif /* __M_H__ */

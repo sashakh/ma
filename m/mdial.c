@@ -41,8 +41,8 @@
 int make_terminal(void)
 {
 	int pty;
-	if((pty = posix_openpt(O_RDWR)) < 0 ||
-			grantpt(pty) < 0 || unlockpt(pty) < 0) {
+	if ((pty = posix_openpt(O_RDWR)) < 0 ||
+	    grantpt(pty) < 0 || unlockpt(pty) < 0) {
 		err("openpt failed: %s\n", strerror(errno));
 		return -1;
 	}
@@ -88,7 +88,7 @@ static int mdial(void)
 	int ret;
 
 	tcgetattr(tty, &termios);
-	
+
 	m = modem_create(tty, modem_driver_name);
 	if (!m)
 		return -1;
@@ -99,19 +99,19 @@ static int mdial(void)
 
 	signal(SIGINT, mark_killed);
 	signal(SIGTERM, mark_killed);
-	
+
 	ret = modem_dial(m, modem_phone_number);
 	if (ret < 0) {
 		dbg("cannot dial.\n");
 		return ret;
 	}
-	
+
 	ret = modem_run(m);
 
 	modem_delete(m);
 
 	tcsetattr(tty, TCSANOW, &termios);
-	
+
 	return ret;
 }
 
