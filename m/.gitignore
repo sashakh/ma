@@ -1,0 +1,10 @@
+mdial
+mtest
+mloop
+gen_tables
+*_table*.[ch]
+*.[oa]
+*.dat
+*~
+.depend
+logs.[0-9]*
