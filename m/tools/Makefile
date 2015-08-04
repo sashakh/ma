@@ -1,7 +1,8 @@
 TOP_DIR:=..
 
 CFLAGS:= -Wall -g -I. -I..
-LDFLAGS:= -lm
+LDFLAGS:=
+LIBS:= -lm
 
 #USE_FFTW3:=1
 #CFLAGS+= -DUSE_FFTW3

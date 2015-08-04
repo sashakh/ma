@@ -1,6 +1,7 @@
 
 CFLAGS:= -Wall -g -I. -DMODEM_DEBUG
-LDFLAGS:= -lasound
+LDFLAGS:=
+LIBS:= -lasound
 
 progs:= mdial mtest mloop
 sources:= $(wildcard *.c)
@@ -23,7 +24,7 @@ $(tables):
 	./tools/gen_tables
 
 $(progs): %: %.o
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(libs): %.a:
 	$(AR) cr $(AFLAGS) $@ $^
