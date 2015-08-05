@@ -1,7 +1,6 @@
 mdial
 mtest
 mloop
-gen_tables
 *_table*.[ch]
 *.[oa]
 *.dat
