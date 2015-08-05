@@ -75,7 +75,7 @@ int psk_demodulate(struct psk_demodulator *p, int16_t * buf, unsigned count)
 	int i, j;
 
 	for (i = 0; i < count; i++) {
-		int16_t d0;	// debug
+		//int16_t d0;	// debug
 		int32_t x0, x1, y0, y1, x, y;
 		unsigned ph, ph0, ph1;
 		unsigned idx0, idx1;

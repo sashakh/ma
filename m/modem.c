@@ -252,7 +252,7 @@ _error:
 
 int modem_tty_process(struct modem *m)
 {
-	static char tty_buf[4096];
+	static unsigned char tty_buf[4096];
 	int cnt;
 	dbg("poll: ttyfd...\n");
 	cnt = fifo_room(&m->tx_fifo);

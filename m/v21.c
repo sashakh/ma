@@ -36,17 +36,16 @@ static int v21_process(struct modem *m, int16_t * in, int16_t * out,
 		       unsigned int count)
 {
 	struct v21_struct *s = (struct v21_struct *)m->datapump.dp;
-	int ret = 0;
 
 	trace("%d", count);
 
-	ret = fsk_demodulate(&s->dem, in, count);
-	ret = fsk_modulate(&s->mod, out, count);
+	fsk_demodulate(&s->dem, in, count);
+	fsk_modulate(&s->mod, out, count);
 
 	return count;
 }
 
-#define V21_CHAN1_FREQ 1080	/* +/- 100 caller -> amswer */
+#define V21_CHAN1_FREQ 1080	/* +/- 100 caller -> answer */
 #define V21_CHAN2_FREQ 1750	/* +/- 100 answer -> caller */
 
 static void *v21_create(struct modem *m)

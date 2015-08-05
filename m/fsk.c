@@ -62,7 +62,7 @@ int fsk_demodulate(struct fsk_demodulator *f, int16_t * buf, unsigned count)
 #endif
 	int32_t x0, y0, x1, y1, diff_energy;
 	unsigned bit;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < count; i++) {
 #ifdef FAST_FSK
@@ -86,7 +86,7 @@ int fsk_demodulate(struct fsk_demodulator *f, int16_t * buf, unsigned count)
 		ph1 += phinc1;
 #else
 		unsigned ph0, ph1;
-		int j;
+		unsigned j;
 		f->history[idx % len] = buf[i] >> shift;
 		idx++;
 		ph0 = ph1 = 0;

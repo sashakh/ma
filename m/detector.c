@@ -93,7 +93,7 @@ static int detector_process(struct modem *m, int16_t * in, int16_t * out,
 			    unsigned int count)
 {
 	struct detector_struct *s = (struct detector_struct *)m->datapump.dp;
-	int i, j;
+	unsigned int i, j;
 	for (i = 0; i < count; i++) {
 		int32_t sample = in[i] >> BLOCK_SHIFT;
 		s->energy += sample * sample;
