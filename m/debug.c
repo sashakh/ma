@@ -92,18 +92,20 @@ int log_samples(unsigned id, int16_t * buf, unsigned size)
 
 int log_printf(unsigned level, const char *fmt, ...)
 {
-	va_list args;
-	int ret = 0;
-	va_start(args, fmt);
-	if (log_level) {
-		static char log_buf[4096];
+	if (log_level || level <= debug_level) {
+		char log_buf[4096];
+		va_list args;
+		int ret = 0;
+		va_start(args, fmt);
 		ret = vsnprintf(log_buf, sizeof(log_buf), fmt, args);
-		log_data(LOG_MESSAGES, log_buf, ret);
+		va_end(args);
+		if (log_level)
+			log_data(LOG_MESSAGES, log_buf, ret);
+		if (level <= debug_level)
+			ret = fprintf(stderr, "%s", log_buf);
+		return ret;
 	}
-	if (level <= debug_level)
-		ret = vfprintf(stderr, fmt, args);
-	va_end(args);
-	return ret;
+	return 0;
 }
 
 #endif
