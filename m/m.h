@@ -212,6 +212,7 @@ extern unsigned int debug_level;
 extern unsigned int log_level;
 extern const char *modem_driver_name;
 extern const char *modem_device_name;
+extern const char *modem_tty_name;
 extern const char *modem_phone_number;
 extern const char *modulation_test;
 

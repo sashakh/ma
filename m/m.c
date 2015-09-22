@@ -34,6 +34,7 @@ unsigned int debug_level = 0;
 unsigned int log_level = 0;
 const char *modem_driver_name = "alsa";
 const char *modem_device_name = "modem:1";
+const char *modem_tty_name = "/dev/ttyM";
 const char *modem_phone_number = "0123456789";
 const char *modulation_test = "detector";
 

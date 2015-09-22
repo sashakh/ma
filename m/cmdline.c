@@ -47,8 +47,7 @@ static struct cmdline_option {
 	int arg_type;
 	void *arg_val;
 } cmdline_options[] = {
-	{
-	"usage", 'u', "this message", show_usage}, {
+	{ "usage", 'u', "this message", show_usage}, {
 	"help", 'h', "this help message", show_usage},
 	    //{"verbose", 'v', "verbose level", NULL, 2, OPTARG_INT, &verbose_level},
 	    //{"verbose", 'v', "verbose mode"},
@@ -58,6 +57,7 @@ static struct cmdline_option {
 	"modem", 'm', "modem driver", NULL, 1, OPTARG_STR, &modem_driver_name},
 	{
 	"device", 'D', "device name", NULL, 1, OPTARG_STR, &modem_device_name},
+	{"tty", 'T', "tty name", NULL, 1, OPTARG_STR, &modem_tty_name},
 	{
 	"number", 'n', "preset phone number", NULL, 1, OPTARG_STR,
 		    &modem_phone_number}, {
