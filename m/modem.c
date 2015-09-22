@@ -436,7 +436,7 @@ static void modem_reset(struct modem *m)
 }
 
 #define MODEM_NAME "MA (modem again)"
-#define MODEM_DESC "sashak's softmodem attempt"
+#define MODEM_DESC "SashaK's softmodem attempt"
 #define MODEM_VERSION "0.000003"
 
 struct modem *modem_create(int tty, const char *drv_name)
