@@ -61,7 +61,7 @@ static int mtest(unsigned dp_id)
 	struct modem *m;
 	int ret;
 
-	m = modem_create(0, modem_driver_name);
+	m = modem_create(NULL, modem_driver_name);
 	if (!m)
 		return -1;
 

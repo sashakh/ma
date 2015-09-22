@@ -20,6 +20,7 @@
  *
  */
 
+#define _GNU_SOURCE
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,6 +29,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <termios.h>
+#include <fcntl.h>
 #include <sys/poll.h>
 
 #include "m.h"
@@ -450,10 +452,60 @@ static void mark_killed(int signum)
 	m->killed = signum;
 }
 
-struct modem *modem_create(int tty, const char *drv_name)
+static int make_terminal(const char *link_name)
+{
+	int pty;
+
+	if ((pty = posix_openpt(O_RDWR)) < 0 ||
+	    grantpt(pty) < 0 || unlockpt(pty) < 0) {
+		err("openpt failed: %s\n", strerror(errno));
+		return -1;
+	}
+
+	unlink(link_name);
+	if (symlink(ptsname(pty), link_name) < 0) {
+#if 0
+		struct stat st;
+		int saved_errno = errno;
+		if (errno == EXIST && stat(ptsname(pty), &stat) < 0
+		    && errno == ENOENT && !unlink(link_name)
+		    symlink(ptsname(pty), link_name) < 0)
+			;
+#endif
+		err("cannot symlink %s -> %s: %s\n", link_name, ptsname(pty), strerror(errno));
+
+		return -1;
+	}
+
+	return pty;
+}
+
+int setup_terminal(int tty)
+{
+	struct termios termios;
+	int ret;
+
+	fcntl(tty, F_SETFL, O_NONBLOCK);
+
+	if ((ret = tcgetattr(tty, &termios)) < 0) {
+		err("tcsetattr failed: %s\n", strerror(errno));
+		return ret;
+	}
+
+	cfmakeraw(&termios);
+	cfsetispeed(&termios, B115200);
+	cfsetospeed(&termios, B115200);
+
+	if ((ret = tcsetattr(tty, TCSANOW, &termios)) < 0)
+		err("tcsetattr failed: %s\n", strerror(errno));
+	return ret;
+}
+
+struct modem *modem_create(const char *tty_name, const char *drv_name)
 {
 	struct modem *m;
 	const struct modem_driver *drv;
+	int tty = 0;
 
 	drv = find_modem_driver(drv_name);
 	if (!drv) {
@@ -466,14 +518,22 @@ struct modem *modem_create(int tty, const char *drv_name)
 		return NULL;
 	memset(m, 0, sizeof(*m));
 
+	if (tty_name && (tty = make_terminal(tty_name)) < 0) {
+		err("cannot make terminal for \'%s\'\n", tty_name);
+		return NULL;
+	}
+
 	m->name = MODEM_NAME;
 	m->driver = drv;
 	m->tty = tty;
 	m->is_tty = isatty(tty);
+	m->tty_link_name = tty_name;
 
 	if (m->is_tty) {
 		m->tty_name = ttyname(tty);
 		tcgetattr(tty, &m->termios);
+		if (tty_name)
+			setup_terminal(tty);
 	} else {
 		m->tty_name = "nottty";
 		dbg("warn: %d (%s) is not a tty\n", m->tty, m->tty_name);
@@ -510,6 +570,8 @@ void modem_delete(struct modem *m)
 		m->driver->close(m);
 	if (m->is_tty)
 		tcsetattr(m->tty, TCSANOW, &m->termios);
+	if (m->tty_link_name)
+		unlink(m->tty_link_name);
 
 	free(m);
 }

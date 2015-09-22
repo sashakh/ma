@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
 	modem_device_name = "/dev/null";
 	parse_cmdline(argc, argv);
 
-	ma = modem_create(0, modem_driver_name);
-	mb = modem_create(0, modem_driver_name);
+	ma = modem_create(NULL, modem_driver_name);
+	mb = modem_create(NULL, modem_driver_name);
 	if (!ma || !mb)
 		exit(1);
 

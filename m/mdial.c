@@ -24,63 +24,16 @@
  *  mdial.c - m dialer application
  */
 
-#define _GNU_SOURCE
-#include <unistd.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <errno.h>
-
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-
 #include "m.h"
-
-int make_terminal(void)
-{
-	int pty;
-	if ((pty = posix_openpt(O_RDWR)) < 0 ||
-	    grantpt(pty) < 0 || unlockpt(pty) < 0) {
-		err("openpt failed: %s\n", strerror(errno));
-		return -1;
-	}
-	return pty;
-}
-
-int setup_terminal(int tty)
-{
-	struct termios termios;
-	int ret;
-
-	fcntl(tty, F_SETFL, O_NONBLOCK);
-
-	if (!isatty(tty))
-		return 0;
-	if ((ret = tcgetattr(tty, &termios)) < 0) {
-		err("tcsetattr failed: %s\n", strerror(errno));
-		return ret;
-	}
-
-	cfmakeraw(&termios);
-	cfsetispeed(&termios, B115200);
-	cfsetospeed(&termios, B115200);
-
-	if ((ret = tcsetattr(tty, TCSANOW, &termios)) < 0)
-		err("tcsetattr failed: %s\n", strerror(errno));
-	return ret;
-}
 
 static int mdial(void)
 {
 	struct modem *m;
-	int tty = 0;
 	int ret;
 
-	m = modem_create(tty, modem_driver_name);
+	m = modem_create(NULL, modem_driver_name);
 	if (!m)
 		return -1;
-
-	setup_terminal(tty);
 
 	ret = modem_dial(m, modem_phone_number);
 	if (ret < 0) {

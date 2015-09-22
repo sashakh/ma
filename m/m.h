@@ -109,7 +109,7 @@ struct modem {
 	const char *name;
 	int tty, dev;
 	unsigned is_tty;
-	const char *tty_name, *dev_name;
+	const char *tty_name, *dev_name, *tty_link_name;
 	const struct modem_driver *driver;
 	void *device_data;
 	struct termios termios;
@@ -171,7 +171,7 @@ static inline void async_bitque_reset(struct async_bitque *q)
 extern void async_bitque_put_bits(struct modem *m, unsigned bits, unsigned num);
 extern unsigned async_bitque_get_bits(struct modem *m, unsigned num);
 
-extern struct modem *modem_create(int tty, const char *drv_name);
+extern struct modem *modem_create(const char *tty_name, const char *drv_name);
 extern void modem_delete(struct modem *m);
 extern int modem_go(struct modem *m, enum DP_ID dp_id);
 extern int modem_dial(struct modem *m, const char *dial_string);
