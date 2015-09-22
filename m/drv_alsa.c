@@ -266,11 +266,13 @@ static int alsa_start(struct modem *m)
 
 	trace();
 
+#ifdef USE_PCM_LINK
 	ret = snd_pcm_link(dev->cpcm, dev->ppcm);
 	if (ret < 0) {
 		err("snd_pcm_link error: %s\n", snd_strerror(ret));
 		return ret;
 	}
+#endif
 
 	len = dev->buffer_size;
 	buf = alloca(snd_pcm_frames_to_bytes(dev->ppcm, len));
@@ -291,7 +293,7 @@ static int alsa_start(struct modem *m)
 		err("startup write error\n");
 		return ret;
 	}
-#if 0				/* autostart is used */
+#ifndef USE_PCM_LINK			/* autostart is used */
 	ret = snd_pcm_start(dev->cpcm);
 	if (ret < 0) {
 		err("snd_pcm_start error: %s\n", snd_strerror(ret));
