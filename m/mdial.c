@@ -28,9 +28,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <termios.h>
 #include <errno.h>
-#include <signal.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -72,33 +70,17 @@ int setup_terminal(int tty)
 	return ret;
 }
 
-static struct modem *mdial_modem;
-
-static void mark_killed(int signum)
-{
-	dbg("mark_killed: %d...\n", signum);
-	mdial_modem->killed = signum;
-}
-
 static int mdial(void)
 {
-	struct termios termios;
 	struct modem *m;
 	int tty = 0;
 	int ret;
-
-	tcgetattr(tty, &termios);
 
 	m = modem_create(tty, modem_driver_name);
 	if (!m)
 		return -1;
 
-	mdial_modem = m;
-
 	setup_terminal(tty);
-
-	signal(SIGINT, mark_killed);
-	signal(SIGTERM, mark_killed);
 
 	ret = modem_dial(m, modem_phone_number);
 	if (ret < 0) {
@@ -109,8 +91,6 @@ static int mdial(void)
 	ret = modem_run(m);
 
 	modem_delete(m);
-
-	tcsetattr(tty, TCSANOW, &termios);
 
 	return ret;
 }

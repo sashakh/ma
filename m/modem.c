@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
+#include <signal.h>
 #include <termios.h>
 #include <sys/poll.h>
 
@@ -439,6 +440,16 @@ static void modem_reset(struct modem *m)
 #define MODEM_DESC "SashaK's softmodem attempt"
 #define MODEM_VERSION "0.000003"
 
+/* hack */
+static struct modem *__modem_last;
+
+static void mark_killed(int signum)
+{
+	struct modem *m = __modem_last;
+	dbg("mark_killed: %d...\n", signum);
+	m->killed = signum;
+}
+
 struct modem *modem_create(int tty, const char *drv_name)
 {
 	struct modem *m;
@@ -476,6 +487,10 @@ struct modem *modem_create(int tty, const char *drv_name)
 		goto _error;
 	}
 
+	__modem_last = m;
+	signal(SIGINT, mark_killed);
+	signal(SIGTERM, mark_killed);
+
 	info("%s - %s, version %s\ndriver is \'%s\', tty is \'%s\'\n",
 	     m->name, MODEM_DESC, MODEM_VERSION, m->driver->name, m->tty_name);
 
@@ -493,5 +508,8 @@ void modem_delete(struct modem *m)
 	modem_reset(m);
 	if (m->dev)
 		m->driver->close(m);
+	if (m->is_tty)
+		tcsetattr(m->tty, TCSANOW, &m->termios);
+
 	free(m);
 }
