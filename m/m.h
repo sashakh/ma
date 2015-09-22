@@ -241,11 +241,11 @@ extern int log_data(unsigned id, void *buf, unsigned size);
 extern int log_samples(unsigned id, int16_t * buf, unsigned size);
 extern int log_printf(unsigned level, const char *fmt, ...);
 
-#define dbg(fmt, arg...) log_printf(1, fmt, ##arg)
-#define trace(fmt, arg...) dbg(__FILE__ ":%s: " fmt "\n", __FUNCTION__, ##arg)
+#define dbg(fmt, ...) log_printf(1, fmt, ## __VA_ARGS__)
+#define trace(fmt, ...) dbg(__FILE__ ":%s: " fmt "\n", __FUNCTION__, ## __VA_ARGS__)
 
 #undef info
-#define info(fmt, arg...) log_printf(0, fmt, ##arg )
+#define info(fmt, ...) log_printf(0, fmt, ##__VA_ARGS__)
 
 #else
 #define log_data(id,buf,size)
@@ -254,7 +254,7 @@ extern int log_printf(unsigned level, const char *fmt, ...);
 #define trace(fmt...)
 #endif
 
-#define err(fmt, arg...) info("err: " __FILE__ ":%d : " fmt , __LINE__ , ##arg )
+#define err(fmt, ...) info("err: " __FILE__ ":%d : %s(): " fmt , __LINE__ , __func__, ## __VA_ARGS__)
 
 #define log_rx_samples(buf,size) log_samples(LOG_RX_SAMPLES,buf,size)
 #define log_tx_samples(buf,size) log_samples(LOG_TX_SAMPLES,buf,size)
