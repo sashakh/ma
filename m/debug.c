@@ -27,6 +27,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/time.h>
 
 #include "m.h"
 
@@ -43,6 +44,13 @@ const char *log_names[] = {
 static int log_fds[32] = { };
 
 static char log_dir_name[64];
+
+static int print_time_stamp(char *buf, size_t size)
+{
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return snprintf(buf, size, "%03lu.%06lu: ", tv.tv_sec % 1000, tv.tv_usec);
+}
 
 static int create_log_file(unsigned id)
 {
@@ -93,19 +101,19 @@ int log_samples(unsigned id, int16_t * buf, unsigned size)
 int log_printf(unsigned level, const char *fmt, ...)
 {
 	if (log_level || level <= debug_level) {
-		char log_buf[4096];
+		char buf[4096];
 		va_list args;
 		int ret = 0;
+		ret = print_time_stamp(buf, sizeof(buf));
 		va_start(args, fmt);
-		ret = vsnprintf(log_buf, sizeof(log_buf), fmt, args);
+		ret = vsnprintf(buf + ret, sizeof(buf) - ret, fmt, args);
 		va_end(args);
 		if (log_level)
-			log_data(LOG_MESSAGES, log_buf, ret);
+			log_data(LOG_MESSAGES, buf, ret);
 		if (level <= debug_level)
-			ret = fprintf(stderr, "%s", log_buf);
+			ret = fprintf(stderr, "%s", buf);
 		return ret;
 	}
 	return 0;
 }
-
 #endif
