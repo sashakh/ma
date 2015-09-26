@@ -205,9 +205,11 @@ static int modem_null_process(struct modem *m,
 	return count;
 }
 
+#define DEV_BUF_SIZE PERIOD_SIZE
+
 static int modem_dev_process(struct modem *m)
 {
-	static int16_t buf_in[1024], buf_out[1024];
+	static int16_t buf_in[DEV_BUF_SIZE], buf_out[DEV_BUF_SIZE];
 	int (*process) (struct modem * m,
 			int16_t * in, int16_t * out, unsigned count);
 	int ret, count;
@@ -226,6 +228,8 @@ static int modem_dev_process(struct modem *m)
 		err("process failed\n");
 		goto _error;
 	}
+
+	dbg("dp process(%d) = %d\n", count, ret);
 
 	if (ret < count) {
 		memset(buf_out + ret, 0, (count - ret) * sizeof(int16_t));

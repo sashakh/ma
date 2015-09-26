@@ -274,7 +274,7 @@ static int alsa_start(struct modem *m)
 	}
 #endif
 
-	len = dev->buffer_size;
+	len = dev->period_size * 4; // dev->buffer_size;
 	buf = alloca(snd_pcm_frames_to_bytes(dev->ppcm, len));
 	if (!buf) {
 		err("cannot alloca %d frames\n", len);
@@ -420,23 +420,21 @@ static int alsa_open(struct modem *m, const char *dev_name)
 	if (ret < 0)
 		dbg("cannot setup mixer: %s\n", snd_strerror(ret));
 
-	ret = snd_pcm_open(&dev->ppcm, alsa_name,
-			   SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+	ret = snd_pcm_open(&dev->ppcm, alsa_name, SND_PCM_STREAM_PLAYBACK, 0);
 	if (ret < 0) {
 		err("cannot open playback '%s': %s\n",
 		    alsa_name, snd_strerror(ret));
 		goto _error;
 	}
 
-	ret = snd_pcm_open(&dev->cpcm, alsa_name,
-			   SND_PCM_STREAM_CAPTURE, SND_PCM_NONBLOCK);
+	ret = snd_pcm_open(&dev->cpcm, alsa_name, SND_PCM_STREAM_CAPTURE, 0);
 	if (ret < 0) {
 		err("cannot open capture '%s': %s\n",
 		    alsa_name, snd_strerror(ret));
 		goto _error;
 	}
 
-	dev->period_size = SAMPLE_RATE / 100;
+	dev->period_size = PERIOD_SIZE;
 	dev->buffer_size = dev->period_size * 16;
 	dev->sample_rate = SAMPLE_RATE;
 

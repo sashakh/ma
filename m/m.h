@@ -29,6 +29,7 @@
 #include <termios.h>
 
 #define SAMPLE_RATE 8000
+#define PERIOD_SIZE (SAMPLE_RATE / 100)
 
 /* types */
 
