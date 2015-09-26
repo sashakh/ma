@@ -33,6 +33,8 @@
 
 #include "m.h"
 
+//#define FILE_HACK "in.raw"
+
 struct alsa_device {
 	int fd;
 	snd_pcm_t *ppcm, *cpcm;
@@ -76,6 +78,10 @@ static int alsa_read(struct modem *m, void *buf, unsigned count)
 	struct alsa_device *dev = m->device_data;
 	int ret;
 	trace("%d", count);
+#ifdef FILE_HACK
+	ret = read(dev->fd, buf, count * sizeof(int16_t));
+	return ret / sizeof(int16_t);
+#endif
 	do {
 		ret = snd_pcm_readi(dev->cpcm, buf, count);
 		if (ret == -EPIPE) {
@@ -459,6 +465,15 @@ static int alsa_open(struct modem *m, const char *dev_name)
 		snd_pcm_dump(dev->ppcm, dev->log);
 
 	m->device_data = dev;
+#ifdef FILE_HACK
+	int fd = open(FILE_HACK, O_RDONLY);
+	if (!fd) {
+		err("cannot open file " FILE_HACK ": %s\n", strerror(errno));
+		goto _error;
+	}
+	dev->fd = fd;
+	return fd;
+#endif
 	return pollfd.fd;
 
 _error:
@@ -493,6 +508,9 @@ static int alsa_close(struct modem *m)
 								0);
 		snd_mixer_close(dev->mixer);
 	}
+#ifdef FILE_HACK
+	close(dev->fd);
+#endif
 	free(dev);
 	return 0;
 }
