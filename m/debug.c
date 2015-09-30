@@ -106,7 +106,7 @@ int log_printf(unsigned level, const char *fmt, ...)
 		int ret = 0;
 		ret = print_time_stamp(buf, sizeof(buf));
 		va_start(args, fmt);
-		ret = vsnprintf(buf + ret, sizeof(buf) - ret, fmt, args);
+		ret += vsnprintf(buf + ret, sizeof(buf) - ret, fmt, args);
 		va_end(args);
 		if (log_level)
 			log_data(LOG_MESSAGES, buf, ret);
