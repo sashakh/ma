@@ -91,25 +91,30 @@ static int file_open(struct modem *m, const char *dev_name)
 		err("no mem: %s\n", strerror(errno));
 		return -1;
 	}
-	f->fd_in = open(file_name, O_RDONLY);
-	if (f->fd_in < 0) {
-		err("cannot open \'%s\': %s\n", file_name, strerror(errno));
-		free(f);
-		return -1;
-	}
+	if (!strcmp(file_name, "-")) {
+		f->fd_in = STDIN_FILENO;
+		f->fd_out = STDOUT_FILENO;
+	} else {
+		f->fd_in = open(file_name, O_RDONLY);
+		if (f->fd_in < 0) {
+			err("cannot open \'%s\': %s\n", file_name, strerror(errno));
+			free(f);
+			return -1;
+		}
 
-	strncpy(path, file_name, sizeof(path));
-	if ((p = strrchr(path, '.')))
-		*p = '\0';
-	snprintf(path + strlen(path), sizeof(path) - strlen(path), ".out");
+		strncpy(path, file_name, sizeof(path));
+		if ((p = strrchr(path, '.')))
+			*p = '\0';
+		snprintf(path + strlen(path), sizeof(path) - strlen(path), ".out");
 
-	file_name = path;
-	f->fd_out = creat(file_name, 0644);
-	if (f->fd_out < 0) {
-		err("cannot creat \'%s\': %s\n", file_name, strerror(errno));
-		close(f->fd_in);
-		free(f);
-		return -1;
+		file_name = path;
+		f->fd_out = creat(file_name, 0644);
+		if (f->fd_out < 0) {
+			err("cannot creat \'%s\': %s\n", file_name, strerror(errno));
+			close(f->fd_in);
+			free(f);
+			return -1;
+		}
 	}
 	m->device_data = f;
 	return f->fd_in;
