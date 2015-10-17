@@ -59,7 +59,8 @@ static int create_log_file(unsigned id)
 	if (!log_dir_name[0]) {
 		sprintf(log_dir_name, "logs.%d", getpid());
 		if (mkdir(log_dir_name, 0755) < 0) {
-			err("mkdir: %s\n", strerror(errno));
+			fprintf(stderr, "mkdir(\"%s\"): %s\n", log_dir_name,
+				strerror(errno));
 			return -1;
 		}
 	}
@@ -67,7 +68,8 @@ static int create_log_file(unsigned id)
 		(id >= arrsize(log_names) || !log_names[id]) ?
 		"misc.data" : log_names[id]);
 	if ((fd = creat(file_name, 0644)) < 0) {
-		err("creat: %s\n", strerror(errno));
+		fprintf(stderr, "creat(\"%s\"): %s\n", file_name,
+			strerror(errno));
 		return fd;
 	}
 	return fd;
